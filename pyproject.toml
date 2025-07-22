@@ -1,0 +1,25 @@
+[build-system]
+requires      = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "libastromech"
+version = "0.0.0"
+description = "A Python library for interfacing with Galaxy's Edge Astromech Droids"
+readme = "README.md"
+authors = [{ name = "Phil McGachey", email = "mcgachey@gmail.com" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["droid", "astromech"]
+dependencies = [
+    "bleak>=0.22.3",
+    "PyYAML>=6.0.2",
+]
+requires-python = ">=3.9"
+
+[project.urls]
+Homepage = "https://github.com/mcgachey/libastromech"

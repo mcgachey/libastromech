@@ -1,0 +1,2 @@
+include src/config/droids/*.yml
+include src/config/personalities/*.yml

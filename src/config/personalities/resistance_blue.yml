@@ -1,0 +1,76 @@
+sounds:
+  - group: 0
+    ms: 538
+    sound: 0
+  - group: 0
+    ms: 445
+    sound: 1
+  - group: 0
+    ms: 1310
+    sound: 2
+  - group: 0
+    ms: 505
+    sound: 3
+  - group: 1
+    ms: 1124
+    sound: 0
+  - group: 1
+    ms: 706
+    sound: 1
+  - group: 1
+    ms: 661
+    sound: 2
+  - group: 1
+    ms: 2055
+    sound: 3
+  - group: 2
+    ms: 1902
+    sound: 0
+  - group: 2
+    ms: 1560
+    sound: 1
+  - group: 2
+    ms: 503
+    sound: 2
+  - group: 2
+    ms: 1174
+    sound: 3
+  - group: 3
+    ms: 1261
+    sound: 0
+  - group: 4
+    ms: 2574
+    sound: 0
+  - group: 5
+    ms: 1188
+    sound: 0
+  - group: 5
+    ms: 1696
+    sound: 1
+  - group: 5
+    ms: 1098
+    sound: 2
+  - group: 5
+    ms: 1563
+    sound: 3
+  - group: 6
+    ms: 2119
+    sound: 0
+  - group: 6
+    ms: 522
+    sound: 1
+  - group: 6
+    ms: 1112
+    sound: 2
+  - group: 6
+    ms: 1311
+    sound: 3
+  - group: 6
+    ms: 1653
+    sound: 4
+  - group: 7
+    ms: 4503
+    sound: 0
+  - group: 8
+    ms: 2795
+    sound: 0
