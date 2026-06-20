@@ -237,6 +237,7 @@ class Astromech(object):
 
   async def _raw_execute(self, command: bytearray):
     print(f"Sending {_dump_bytes(command)}")
+    print(f"Characteristics: {self._client.services.characteristics}")
     response = await self._client.write_gatt_char(
       self._client.services.characteristics[13], command,
       response=True,
