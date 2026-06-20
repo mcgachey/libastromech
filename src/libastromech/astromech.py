@@ -50,6 +50,8 @@ class Motor(enum.Enum):
   HEAD = 0x02
 
 class Astromech(object):
+  _ble_lock: Optional[asyncio.Lock] = None
+
   def __init__(
       self,
       droid_type: str,
@@ -69,19 +71,30 @@ class Astromech(object):
     self._lock: Optional[asyncio.Lock] = None
     self._notification_listeners = []
 
-  async def connect(self):
-    if self._client and self._client.is_connected:
-      return
-    self._loop = asyncio.get_running_loop()
-    self._lock = asyncio.Lock()
+  @classmethod
+  def _get_ble_lock(cls) -> asyncio.Lock:
+    if cls._ble_lock is None:
+      cls._ble_lock = asyncio.Lock()
+    return cls._ble_lock
+
+  async def _do_connect(self):
     self._client = BleakClient(self.mac_address)
     await self._client.connect()
     await self._client.start_notify(
       self._client.services.characteristics[10],
       self._notification_callback
     )
+    await asyncio.sleep(0.5)
     await self._raw_execute(bytearray([0x22, 0x20, 0x01]))
     await self._raw_execute(bytearray([0x22, 0x20, 0x01]))
+
+  async def connect(self):
+    if self._client and self._client.is_connected:
+      return
+    self._loop = asyncio.get_running_loop()
+    self._lock = asyncio.Lock()
+    async with self._get_ble_lock():
+      await self._do_connect()
 
   async def disconnect(self):
     if self._client and self._client.is_connected:
@@ -93,15 +106,8 @@ class Astromech(object):
       await self.disconnect()
     except Exception:
       pass
-    self._client = BleakClient(self.mac_address)
-    await self._client.connect()
-    await self._client.start_notify(
-      self._client.services.characteristics[10],
-      self._notification_callback
-    )
-    await asyncio.sleep(0.5)
-    await self._raw_execute(bytearray([0x22, 0x20, 0x01]))
-    await self._raw_execute(bytearray([0x22, 0x20, 0x01]))
+    async with self._get_ble_lock():
+      await self._do_connect()
 
   async def __aenter__(self) -> Astromech:
     await self.connect()
