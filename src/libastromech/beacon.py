@@ -76,7 +76,7 @@ def _hci_set_advertising_data(ad_data: bytes, hci_device: str = 'hci0'):
     if pad_length > 0:
         hex_args += ' ' + ' '.join(['0x00'] * pad_length)
     subprocess.run(
-        ['sudo', 'hcitool', '-i', hci_device, 'cmd', '0x08', '0x0008', hex_args],
+        ['sudo', 'hcitool', '-i', hci_device, 'cmd', '0x08', '0x0008'] + hex_args.split(),
         check=True,
     )
 
@@ -100,21 +100,21 @@ def start_beacon(beacon_payload: bytes, hci_device: str = 'hci0'):
     ad_data = _build_advertising_data(beacon_payload)
     mfg_id = _manufacturer_id_bytes()
     mfg_data = mfg_id + beacon_payload
-    print(f"[beacon] Starting beacon on {hci_device}")
-    print(f"[beacon] Manufacturer ID: 0x{DISNEY_MANUFACTURER_ID:04X} (Disney)")
-    print(f"[beacon] Manufacturer data: {' '.join(f'{b:02X}' for b in mfg_data)}")
-    print(f"[beacon] Full advertising data: {' '.join(f'{b:02X}' for b in ad_data)}")
-    print(f"[beacon] On your phone scanner, look for a device with:")
-    print(f"[beacon]   - No name (non-connectable broadcast)")
-    print(f"[beacon]   - Manufacturer Specific Data for company 0x{DISNEY_MANUFACTURER_ID:04X}")
-    print(f"[beacon]   - Raw manufacturer bytes: {' '.join(f'{b:02X}' for b in mfg_data)}")
+    print(f"[beacon] Starting beacon on {hci_device}", flush=True)
+    print(f"[beacon] Manufacturer ID: 0x{DISNEY_MANUFACTURER_ID:04X} (Disney)", flush=True)
+    print(f"[beacon] Manufacturer data: {' '.join(f'{b:02X}' for b in mfg_data)}", flush=True)
+    print(f"[beacon] Full advertising data: {' '.join(f'{b:02X}' for b in ad_data)}", flush=True)
+    print(f"[beacon] On your phone scanner, look for a device with:", flush=True)
+    print(f"[beacon]   - No name (non-connectable broadcast)", flush=True)
+    print(f"[beacon]   - Manufacturer Specific Data for company 0x{DISNEY_MANUFACTURER_ID:04X}", flush=True)
+    print(f"[beacon]   - Raw manufacturer bytes: {' '.join(f'{b:02X}' for b in mfg_data)}", flush=True)
     _hci_set_advertising_data(ad_data, hci_device)
     _hci_start_advertising(hci_device)
-    print(f"[beacon] Broadcasting")
+    print(f"[beacon] Broadcasting", flush=True)
 
 
 def stop_beacon(hci_device: str = 'hci0'):
-    print(f"[beacon] Stopping beacon on {hci_device}")
+    print(f"[beacon] Stopping beacon on {hci_device}", flush=True)
     _hci_stop_advertising(hci_device)
 
 
