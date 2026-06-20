@@ -67,6 +67,8 @@ class Astromech(object):
     self.mac_address = mac_address
     self.personality = personality
     self._client: Optional[BleakClient] = None
+    self._notify_char: Optional[BleakGATTCharacteristic] = None
+    self._command_char: Optional[BleakGATTCharacteristic] = None
     self._loop: Optional[asyncio.AbstractEventLoop] = None
     self._lock: Optional[asyncio.Lock] = None
     self._notification_listeners = []
@@ -80,10 +82,12 @@ class Astromech(object):
   async def _do_connect(self):
     self._client = BleakClient(self.mac_address)
     await self._client.connect()
-    await self._client.start_notify(
-      self._client.services.characteristics[10],
-      self._notification_callback
-    )
+    for char in self._client.services.characteristics.values():
+      if 'notify' in char.properties:
+        self._notify_char = char
+      if 'write' in char.properties or 'write-without-response' in char.properties:
+        self._command_char = char
+    await self._client.start_notify(self._notify_char, self._notification_callback)
     await asyncio.sleep(0.5)
     await self._raw_execute(bytearray([0x22, 0x20, 0x01]))
     await self._raw_execute(bytearray([0x22, 0x20, 0x01]))
@@ -239,7 +243,7 @@ class Astromech(object):
     print(f"Sending {_dump_bytes(command)}")
     print(f"Characteristics: {self._client.services.characteristics}")
     response = await self._client.write_gatt_char(
-      self._client.services.characteristics[13], command,
+      self._command_char, command,
       response=True,
     )
     if response:
