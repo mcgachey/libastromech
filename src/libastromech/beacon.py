@@ -86,15 +86,23 @@ def _hci_start_advertising(hci_device: str = 'hci0'):
     # leadv 3 = non-connectable undirected advertising (broadcast only)
     subprocess.run(
         ['sudo', 'hciconfig', hci_device, 'leadv', '3'],
-        check=True,
     )
 
 
 def _hci_stop_advertising(hci_device: str = 'hci0'):
     subprocess.run(
         ['sudo', 'hciconfig', hci_device, 'noleadv'],
-        check=True,
     )
+
+
+def _apply_beacon(ad_data: bytes, hci_device: str = 'hci0') -> bool:
+    try:
+        _hci_set_advertising_data(ad_data, hci_device)
+        _hci_start_advertising(hci_device)
+        return True
+    except Exception as e:
+        print(f"[beacon] Failed to apply advertising: {e}", flush=True)
+        return False
 
 
 def start_beacon(beacon_payload: bytes, hci_device: str = 'hci0'):
@@ -109,9 +117,10 @@ def start_beacon(beacon_payload: bytes, hci_device: str = 'hci0'):
     print(f"[beacon]   - No name (non-connectable broadcast)", flush=True)
     print(f"[beacon]   - Manufacturer/Company ID: 0x{DISNEY_MANUFACTURER_ID:04X} ({DISNEY_MANUFACTURER_ID})", flush=True)
     print(f"[beacon]   - Payload: {' '.join(f'{b:02X}' for b in beacon_payload)}", flush=True)
-    _hci_set_advertising_data(ad_data, hci_device)
-    _hci_start_advertising(hci_device)
-    print(f"[beacon] Broadcasting", flush=True)
+    if _apply_beacon(ad_data, hci_device):
+        print(f"[beacon] Broadcasting", flush=True)
+    else:
+        print(f"[beacon] Initial start failed, will retry", flush=True)
 
 
 def stop_beacon(hci_device: str = 'hci0'):
@@ -132,16 +141,11 @@ async def run_beacon(
     hci_device: str = 'hci0',
     refresh_interval: int = 30,
 ):
-    start_beacon(beacon_payload, hci_device)
     ad_data = _build_advertising_data(beacon_payload)
     try:
         while True:
             await asyncio.sleep(refresh_interval)
-            try:
-                _hci_set_advertising_data(ad_data, hci_device)
-                _hci_start_advertising(hci_device)
+            if _apply_beacon(ad_data, hci_device):
                 print(f"[beacon] Refreshed advertising", flush=True)
-            except Exception as e:
-                print(f"[beacon] Failed to refresh advertising: {e}", flush=True)
     finally:
         stop_beacon(hci_device)
