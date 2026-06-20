@@ -99,6 +99,7 @@ class Astromech(object):
       self._client.services.characteristics[10],
       self._notification_callback
     )
+    await asyncio.sleep(0.5)
     await self._raw_execute(bytearray([0x22, 0x20, 0x01]))
     await self._raw_execute(bytearray([0x22, 0x20, 0x01]))
 
@@ -209,7 +210,7 @@ class Astromech(object):
         self._execute(command), self._loop
       )
       return await asyncio.get_running_loop().run_in_executor(
-        None, future.result, 10
+        None, future.result, 30
       )
     async with self._lock:
       return await self._execute_with_retry(command)
