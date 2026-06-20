@@ -215,15 +215,19 @@ class Astromech(object):
     async with self._lock:
       return await self._execute_with_retry(command)
 
-  async def _execute_with_retry(self, command: bytearray):
-    if not self._client or not self._client.is_connected:
-      await self._reconnect()
-      return await self._raw_execute(command)
-    try:
-      return await self._raw_execute(command)
-    except Exception:
-      await self._reconnect()
-      return await self._raw_execute(command)
+  async def _execute_with_retry(self, command: bytearray, max_attempts: int = 3):
+    last_error = None
+    for attempt in range(max_attempts):
+      try:
+        if not self._client or not self._client.is_connected:
+          await self._reconnect()
+        return await self._raw_execute(command)
+      except Exception as e:
+        last_error = e
+        print(f"Command failed (attempt {attempt + 1}/{max_attempts}): {e}", flush=True)
+        if attempt < max_attempts - 1:
+          await asyncio.sleep(1)
+    raise last_error
 
   async def _raw_execute(self, command: bytearray):
     print(f"Sending {_dump_bytes(command)}")
