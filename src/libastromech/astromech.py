@@ -66,12 +66,14 @@ class Astromech(object):
     self.personality = personality
     self._client: BleakClient
     self._notification_listeners = []
+    self._lock = asyncio.Lock()
 
   async def __aenter__(self) -> Astromech:
+    await self._lock.acquire()
     self._client = BleakClient(self.mac_address)
     await self._client.connect()
     await self._client.start_notify(
-      self._client.services.characteristics[10], 
+      self._client.services.characteristics[10],
       self._notification_callback
     )
     await self._execute(bytearray([0x22, 0x20, 0x01]))
@@ -79,8 +81,11 @@ class Astromech(object):
     return self
 
   async def __aexit__(self, exception_type, exception_value, exception_traceback):
-    if self._client and self._client.is_connected:
-      await self._client.disconnect()
+    try:
+      if self._client and self._client.is_connected:
+        await self._client.disconnect()
+    finally:
+      self._lock.release()
 
   def _notification_callback(self, sender: BleakGATTCharacteristic, data: bytearray):
     for c in self._notification_listeners:

@@ -98,11 +98,23 @@ def _hci_stop_advertising(hci_device: str = 'hci0'):
 
 def start_beacon(beacon_payload: bytes, hci_device: str = 'hci0'):
     ad_data = _build_advertising_data(beacon_payload)
+    mfg_id = _manufacturer_id_bytes()
+    mfg_data = mfg_id + beacon_payload
+    print(f"[beacon] Starting beacon on {hci_device}")
+    print(f"[beacon] Manufacturer ID: 0x{DISNEY_MANUFACTURER_ID:04X} (Disney)")
+    print(f"[beacon] Manufacturer data: {' '.join(f'{b:02X}' for b in mfg_data)}")
+    print(f"[beacon] Full advertising data: {' '.join(f'{b:02X}' for b in ad_data)}")
+    print(f"[beacon] On your phone scanner, look for a device with:")
+    print(f"[beacon]   - No name (non-connectable broadcast)")
+    print(f"[beacon]   - Manufacturer Specific Data for company 0x{DISNEY_MANUFACTURER_ID:04X}")
+    print(f"[beacon]   - Raw manufacturer bytes: {' '.join(f'{b:02X}' for b in mfg_data)}")
     _hci_set_advertising_data(ad_data, hci_device)
     _hci_start_advertising(hci_device)
+    print(f"[beacon] Broadcasting")
 
 
 def stop_beacon(hci_device: str = 'hci0'):
+    print(f"[beacon] Stopping beacon on {hci_device}")
     _hci_stop_advertising(hci_device)
 
 
