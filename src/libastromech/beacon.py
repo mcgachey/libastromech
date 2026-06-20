@@ -119,12 +119,29 @@ def stop_beacon(hci_device: str = 'hci0'):
     _hci_stop_advertising(hci_device)
 
 
+def _check_advertising(hci_device: str = 'hci0') -> bool:
+    result = subprocess.run(
+        ['hciconfig', hci_device],
+        capture_output=True, text=True,
+    )
+    return 'UP RUNNING' in result.stdout and 'PSCAN' not in result.stdout
+
+
 async def run_beacon(
     beacon_payload: bytes,
     hci_device: str = 'hci0',
+    refresh_interval: int = 30,
 ):
     start_beacon(beacon_payload, hci_device)
+    ad_data = _build_advertising_data(beacon_payload)
     try:
-        await asyncio.Event().wait()
+        while True:
+            await asyncio.sleep(refresh_interval)
+            try:
+                _hci_set_advertising_data(ad_data, hci_device)
+                _hci_start_advertising(hci_device)
+                print(f"[beacon] Refreshed advertising", flush=True)
+            except Exception as e:
+                print(f"[beacon] Failed to refresh advertising: {e}", flush=True)
     finally:
         stop_beacon(hci_device)
