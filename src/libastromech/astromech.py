@@ -202,7 +202,9 @@ class Astromech(object):
     return data
 
   async def _execute(self, command: bytearray):
-    if self._loop and asyncio.get_running_loop() != self._loop:
+    if not self._loop:
+      await self.connect()
+    if asyncio.get_running_loop() != self._loop:
       future = asyncio.run_coroutine_threadsafe(
         self._execute(command), self._loop
       )
@@ -213,6 +215,9 @@ class Astromech(object):
       return await self._execute_with_retry(command)
 
   async def _execute_with_retry(self, command: bytearray):
+    if not self._client or not self._client.is_connected:
+      await self._reconnect()
+      return await self._raw_execute(command)
     try:
       return await self._raw_execute(command)
     except Exception:
