@@ -82,16 +82,35 @@ def _hci_set_advertising_data(ad_data: bytes, hci_device: str = 'hci0'):
     )
 
 
-def _hci_start_advertising(hci_device: str = 'hci0'):
-    # leadv 3 = non-connectable undirected advertising (broadcast only)
+def _hci_set_advertising_parameters(hci_device: str = 'hci0'):
+    # HCI command 0x08 0x0006 = LE Set Advertising Parameters
+    # min_interval: 0x0800 (1.28s), max_interval: 0x0800 (1.28s)
+    # type: 0x03 (non-connectable undirected)
+    # own_addr_type: 0x00, direct_addr_type: 0x00, direct_addr: 00:00:00:00:00:00
+    # channel_map: 0x07 (all), filter_policy: 0x00
     subprocess.run(
-        ['sudo', 'hciconfig', hci_device, 'leadv', '3'],
+        ['sudo', 'hcitool', '-i', hci_device, 'cmd', '0x08', '0x0006',
+         '0x00', '0x08', '0x00', '0x08', '0x03', '0x00', '0x00',
+         '0x00', '0x00', '0x00', '0x00', '0x00', '0x00',
+         '0x07', '0x00'],
+        check=True,
+    )
+
+
+def _hci_start_advertising(hci_device: str = 'hci0'):
+    # HCI command 0x08 0x000A = LE Set Advertise Enable
+    _hci_set_advertising_parameters(hci_device)
+    subprocess.run(
+        ['sudo', 'hcitool', '-i', hci_device, 'cmd', '0x08', '0x000A', '0x01'],
+        check=True,
     )
 
 
 def _hci_stop_advertising(hci_device: str = 'hci0'):
+    # HCI command 0x08 0x000A = LE Set Advertise Disable
     subprocess.run(
-        ['sudo', 'hciconfig', hci_device, 'noleadv'],
+        ['sudo', 'hcitool', '-i', hci_device, 'cmd', '0x08', '0x000A', '0x00'],
+        check=True,
     )
 
 
