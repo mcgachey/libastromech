@@ -14,6 +14,7 @@ AFFILIATIONS = {
     'scoundrel': 1,
     'resistance': 5,
     'first_order': 9,
+    'silent': 0x0d,
 }
 
 PERSONALITY_CHIPS = {

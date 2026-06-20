@@ -51,9 +51,9 @@ class Motor(enum.Enum):
 
 class Astromech(object):
   def __init__(
-      self, 
+      self,
       droid_type: str,
-      mac_address: str, 
+      mac_address: str,
       personality: Optional[Personality]
     ):
     with open(Path(__file__).parent.parent / 'config' / 'droids' / f"{droid_type}.yml") as f:
@@ -64,28 +64,50 @@ class Astromech(object):
     self._head_speed = config['head']['speed']
     self.mac_address = mac_address
     self.personality = personality
-    self._client: BleakClient
+    self._client: Optional[BleakClient] = None
+    self._loop: Optional[asyncio.AbstractEventLoop] = None
+    self._lock: Optional[asyncio.Lock] = None
     self._notification_listeners = []
-    self._lock = asyncio.Lock()
 
-  async def __aenter__(self) -> Astromech:
-    await self._lock.acquire()
+  async def connect(self):
+    if self._client and self._client.is_connected:
+      return
+    self._loop = asyncio.get_running_loop()
+    self._lock = asyncio.Lock()
     self._client = BleakClient(self.mac_address)
     await self._client.connect()
     await self._client.start_notify(
       self._client.services.characteristics[10],
       self._notification_callback
     )
-    await self._execute(bytearray([0x22, 0x20, 0x01]))
-    await self._execute(bytearray([0x22, 0x20, 0x01]))
+    await self._raw_execute(bytearray([0x22, 0x20, 0x01]))
+    await self._raw_execute(bytearray([0x22, 0x20, 0x01]))
+
+  async def disconnect(self):
+    if self._client and self._client.is_connected:
+      await self._client.disconnect()
+    self._client = None
+
+  async def _reconnect(self):
+    try:
+      await self.disconnect()
+    except Exception:
+      pass
+    self._client = BleakClient(self.mac_address)
+    await self._client.connect()
+    await self._client.start_notify(
+      self._client.services.characteristics[10],
+      self._notification_callback
+    )
+    await self._raw_execute(bytearray([0x22, 0x20, 0x01]))
+    await self._raw_execute(bytearray([0x22, 0x20, 0x01]))
+
+  async def __aenter__(self) -> Astromech:
+    await self.connect()
     return self
 
   async def __aexit__(self, exception_type, exception_value, exception_traceback):
-    try:
-      if self._client and self._client.is_connected:
-        await self._client.disconnect()
-    finally:
-      self._lock.release()
+    await self.disconnect()
 
   def _notification_callback(self, sender: BleakGATTCharacteristic, data: bytearray):
     for c in self._notification_listeners:
@@ -95,7 +117,7 @@ class Astromech(object):
     self._notification_listeners.append(callback)
 
   async def keep_alive(
-      self, 
+      self,
       heartbeat_success: Optional[Callable[[], Astromech]],
       heartbeat_failure: Optional[Callable[[], Astromech]],
       sleep_secs: int = 30
@@ -129,11 +151,11 @@ class Astromech(object):
     await self._execute(self._command(0x02, bytearray([0, 0])))
 
   async def _move_wheels(
-      self, 
-      left_direction: Direction, 
+      self,
+      left_direction: Direction,
       right_direction: Direction,
       duration_ms: int,
-      left_speed: Optional[int], 
+      left_speed: Optional[int],
       right_speed: Optional[int],
       ramp_time: Optional[int],
     ):
@@ -155,9 +177,9 @@ class Astromech(object):
 
   def _motor_command(
       self,
-      direction: Direction, 
-      motor: Motor, 
-      speed: int | None = None, 
+      direction: Direction,
+      motor: Motor,
+      speed: int | None = None,
       ramp_time: int | None = None,
       delay_after: int = 0,
     ):
@@ -176,13 +198,31 @@ class Astromech(object):
     data.append(command_id)
     data.append(0x40 + cmd_len)
     if command_data:
-      data += command_data  
+      data += command_data
     return data
 
   async def _execute(self, command: bytearray):
+    if self._loop and asyncio.get_running_loop() != self._loop:
+      future = asyncio.run_coroutine_threadsafe(
+        self._execute(command), self._loop
+      )
+      return await asyncio.get_running_loop().run_in_executor(
+        None, future.result, 10
+      )
+    async with self._lock:
+      return await self._execute_with_retry(command)
+
+  async def _execute_with_retry(self, command: bytearray):
+    try:
+      return await self._raw_execute(command)
+    except Exception:
+      await self._reconnect()
+      return await self._raw_execute(command)
+
+  async def _raw_execute(self, command: bytearray):
     print(f"Sending {_dump_bytes(command)}")
     response = await self._client.write_gatt_char(
-      self._client.services.characteristics[13], command, 
+      self._client.services.characteristics[13], command,
       response=True,
     )
     if response:
