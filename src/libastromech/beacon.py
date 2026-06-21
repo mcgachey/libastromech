@@ -78,7 +78,7 @@ def _hci_set_advertising_data(ad_data: bytes, hci_device: str = 'hci0'):
         hex_args += ' ' + ' '.join(['0x00'] * pad_length)
     subprocess.run(
         ['sudo', 'hcitool', '-i', hci_device, 'cmd', '0x08', '0x0008'] + hex_args.split(),
-        check=True,
+        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
 
 
@@ -93,7 +93,7 @@ def _hci_set_advertising_parameters(hci_device: str = 'hci0'):
          '0x00', '0x08', '0x00', '0x08', '0x03', '0x00', '0x00',
          '0x00', '0x00', '0x00', '0x00', '0x00', '0x00',
          '0x07', '0x00'],
-        check=True,
+        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
 
 
@@ -102,7 +102,7 @@ def _hci_start_advertising(hci_device: str = 'hci0'):
     _hci_set_advertising_parameters(hci_device)
     subprocess.run(
         ['sudo', 'hcitool', '-i', hci_device, 'cmd', '0x08', '0x000A', '0x01'],
-        check=True,
+        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
 
 
@@ -110,7 +110,7 @@ def _hci_stop_advertising(hci_device: str = 'hci0'):
     # HCI command 0x08 0x000A = LE Set Advertise Disable
     subprocess.run(
         ['sudo', 'hcitool', '-i', hci_device, 'cmd', '0x08', '0x000A', '0x00'],
-        check=True,
+        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
 
 
@@ -161,10 +161,6 @@ async def run_beacon(
     refresh_interval: int = 30,
 ):
     ad_data = _build_advertising_data(beacon_payload)
-    try:
-        while True:
-            await asyncio.sleep(refresh_interval)
-            if _apply_beacon(ad_data, hci_device):
-                print(f"[beacon] Refreshed advertising", flush=True)
-    finally:
-        stop_beacon(hci_device)
+    while True:
+        await asyncio.sleep(refresh_interval)
+        _apply_beacon(ad_data, hci_device)

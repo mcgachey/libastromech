@@ -98,11 +98,14 @@ class Astromech(object):
     self._loop = asyncio.get_running_loop()
     self._lock = asyncio.Lock()
     async with self._get_ble_lock():
-      await self._do_connect()
+      await asyncio.wait_for(self._do_connect(), timeout=30)
 
   async def disconnect(self):
-    if self._client and self._client.is_connected:
-      await self._client.disconnect()
+    if self._client:
+      try:
+        await self._client.disconnect()
+      except Exception:
+        pass
     self._client = None
 
   async def _reconnect(self):
@@ -111,7 +114,7 @@ class Astromech(object):
     except Exception:
       pass
     async with self._get_ble_lock():
-      await self._do_connect()
+      await asyncio.wait_for(self._do_connect(), timeout=30)
 
   async def __aenter__(self) -> Astromech:
     await self.connect()
@@ -170,7 +173,6 @@ class Astromech(object):
       right_speed: Optional[int],
       ramp_time: Optional[int],
     ):
-    print(f"Left speed: {left_speed}, right speed: {right_speed}")
     await self._execute(self._motor_command(left_direction, Motor.LEFT, left_speed, ramp_time))
     await self._execute(self._motor_command(right_direction, Motor.RIGHT, right_speed, ramp_time))
     await self.stop(delay_ms=duration_ms)
@@ -234,20 +236,15 @@ class Astromech(object):
         return await self._raw_execute(command)
       except Exception as e:
         last_error = e
-        print(f"Command failed (attempt {attempt + 1}/{max_attempts}): {e}", flush=True)
         if attempt < max_attempts - 1:
           await asyncio.sleep(1)
     raise last_error
 
   async def _raw_execute(self, command: bytearray):
-    print(f"Sending {_dump_bytes(command)}")
-    print(f"Characteristics: {self._client.services.characteristics}")
     response = await self._client.write_gatt_char(
       self._command_char, command,
       response=True,
     )
-    if response:
-      print(f"Response: {response}")
     return response
 
 def _dump_bytes(data: bytearray):
