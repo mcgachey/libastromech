@@ -103,10 +103,11 @@ class Astromech(object):
   async def disconnect(self):
     if self._client:
       try:
-        await self._client.disconnect()
+        if self._client.is_connected:
+          await self._client.disconnect()
       except Exception:
         pass
-    self._client = None
+      self._client = None
 
   async def _reconnect(self):
     try:
