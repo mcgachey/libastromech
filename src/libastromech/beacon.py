@@ -135,7 +135,7 @@ def start_beacon(beacon_payload: bytes, hci_device: str = 'hci0'):
     print(f"[beacon] On your phone scanner, look for a device with:", flush=True)
     print(f"[beacon]   - No name (non-connectable broadcast)", flush=True)
     print(f"[beacon]   - Manufacturer/Company ID: 0x{DISNEY_MANUFACTURER_ID:04X} ({DISNEY_MANUFACTURER_ID})", flush=True)
-    print(f"[beacon]   - Payload: {' '.join(f'{b:02X}' for b in beacon_payload)}", flush=True)
+    # print(f"[beacon]   - Payload: {' '.join(f'{b:02X}' for b in beacon_payload)}", flush=True)
     if _apply_beacon(ad_data, hci_device):
         print(f"[beacon] Broadcasting", flush=True)
     else:
