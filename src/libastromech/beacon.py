@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 
 from dbus_fast import BusType, Variant
@@ -70,7 +68,7 @@ class _LEAdvertisement(ServiceInterface):
         self._released = asyncio.Event()
 
     @method()
-    def Release(self) -> None:
+    def Release(self):
         print('[beacon] Advertisement released by BlueZ', flush=True)
         self._released.set()
 
