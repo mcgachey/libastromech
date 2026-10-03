@@ -237,6 +237,7 @@ class Astromech(object):
         return await self._raw_execute(command)
       except Exception as e:
         last_error = e
+        self._client = None  # force full reconnect on next attempt
         if attempt < max_attempts - 1:
           await asyncio.sleep(1)
     raise last_error

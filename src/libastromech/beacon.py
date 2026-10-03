@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import subprocess
-from typing import Optional
+
+from dbus_fast import BusType, Variant
+from dbus_fast.aio import MessageBus
+from dbus_fast.service import ServiceInterface, dbus_property, method, PropertyAccess
 
 
 DISNEY_MANUFACTURER_ID = 0x0183
@@ -37,10 +39,6 @@ PERSONALITY_CHIPS = {
 }
 
 
-def _manufacturer_id_bytes() -> bytes:
-    return DISNEY_MANUFACTURER_ID.to_bytes(2, 'little')
-
-
 def location_beacon_payload(
     location_id: int,
     interval: int = 0x0C,
@@ -61,98 +59,28 @@ def personality_beacon_payload(
     return bytes([PERSONALITY_BEACON_TYPE, 0x04, 0x44, status, affiliation_byte, chip_id])
 
 
-def _build_advertising_data(beacon_payload: bytes) -> bytes:
-    flags = bytes([0x02, 0x01, 0x06])
-    mfg_id = _manufacturer_id_bytes()
-    mfg_structure = bytes([1 + len(mfg_id) + len(beacon_payload), 0xFF]) + mfg_id + beacon_payload
-    ad_data = flags + mfg_structure
-    return bytes([len(ad_data)]) + ad_data
+_ADV_PATH = '/com/astromech/advertisement0'
 
 
-def _hci_set_advertising_data(ad_data: bytes, hci_device: str = 'hci0'):
-    hex_args = ' '.join(f'0x{b:02X}' for b in ad_data)
-    # HCI command 0x08 0x0008 = LE Set Advertising Data
-    # The command expects exactly 32 bytes of data (padded with zeros)
-    pad_length = 32 - len(ad_data)
-    if pad_length > 0:
-        hex_args += ' ' + ' '.join(['0x00'] * pad_length)
-    subprocess.run(
-        ['sudo', 'hcitool', '-i', hci_device, 'cmd', '0x08', '0x0008'] + hex_args.split(),
-        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
+class _LEAdvertisement(ServiceInterface):
+    def __init__(self, manufacturer_id: int, payload: bytes):
+        super().__init__('org.bluez.LEAdvertisement1')
+        self._manufacturer_id = manufacturer_id
+        self._payload = list(payload)
+        self._released = asyncio.Event()
 
+    @method()
+    def Release(self) -> None:
+        print('[beacon] Advertisement released by BlueZ', flush=True)
+        self._released.set()
 
-def _hci_set_advertising_parameters(hci_device: str = 'hci0'):
-    # HCI command 0x08 0x0006 = LE Set Advertising Parameters
-    # min_interval: 0x0800 (1.28s), max_interval: 0x0800 (1.28s)
-    # type: 0x03 (non-connectable undirected)
-    # own_addr_type: 0x00, direct_addr_type: 0x00, direct_addr: 00:00:00:00:00:00
-    # channel_map: 0x07 (all), filter_policy: 0x00
-    subprocess.run(
-        ['sudo', 'hcitool', '-i', hci_device, 'cmd', '0x08', '0x0006',
-         '0x00', '0x08', '0x00', '0x08', '0x03', '0x00', '0x00',
-         '0x00', '0x00', '0x00', '0x00', '0x00', '0x00',
-         '0x07', '0x00'],
-        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
+    @dbus_property(access=PropertyAccess.READ)
+    def Type(self) -> 's':
+        return 'broadcast'
 
-
-def _hci_start_advertising(hci_device: str = 'hci0'):
-    # HCI command 0x08 0x000A = LE Set Advertise Enable
-    _hci_set_advertising_parameters(hci_device)
-    subprocess.run(
-        ['sudo', 'hcitool', '-i', hci_device, 'cmd', '0x08', '0x000A', '0x01'],
-        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-
-
-def _hci_stop_advertising(hci_device: str = 'hci0'):
-    # HCI command 0x08 0x000A = LE Set Advertise Disable
-    subprocess.run(
-        ['sudo', 'hcitool', '-i', hci_device, 'cmd', '0x08', '0x000A', '0x00'],
-        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-
-
-def _apply_beacon(ad_data: bytes, hci_device: str = 'hci0') -> bool:
-    try:
-        _hci_set_advertising_data(ad_data, hci_device)
-        _hci_start_advertising(hci_device)
-        return True
-    except Exception as e:
-        print(f"[beacon] Failed to apply advertising: {e}", flush=True)
-        return False
-
-
-def start_beacon(beacon_payload: bytes, hci_device: str = 'hci0'):
-    ad_data = _build_advertising_data(beacon_payload)
-    mfg_id = _manufacturer_id_bytes()
-    mfg_data = mfg_id + beacon_payload
-    print(f"[beacon] Starting beacon on {hci_device}", flush=True)
-    print(f"[beacon] Manufacturer ID: 0x{DISNEY_MANUFACTURER_ID:04X} (Disney)", flush=True)
-    print(f"[beacon] Manufacturer data: {' '.join(f'{b:02X}' for b in mfg_data)}", flush=True)
-    print(f"[beacon] Full advertising data: {' '.join(f'{b:02X}' for b in ad_data)}", flush=True)
-    print(f"[beacon] On your phone scanner, look for a device with:", flush=True)
-    print(f"[beacon]   - No name (non-connectable broadcast)", flush=True)
-    print(f"[beacon]   - Manufacturer/Company ID: 0x{DISNEY_MANUFACTURER_ID:04X} ({DISNEY_MANUFACTURER_ID})", flush=True)
-    # print(f"[beacon]   - Payload: {' '.join(f'{b:02X}' for b in beacon_payload)}", flush=True)
-    if _apply_beacon(ad_data, hci_device):
-        print(f"[beacon] Broadcasting", flush=True)
-    else:
-        print(f"[beacon] Initial start failed, will retry", flush=True)
-
-
-def stop_beacon(hci_device: str = 'hci0'):
-    print(f"[beacon] Stopping beacon on {hci_device}", flush=True)
-    _hci_stop_advertising(hci_device)
-
-
-def _check_advertising(hci_device: str = 'hci0') -> bool:
-    result = subprocess.run(
-        ['hciconfig', hci_device],
-        capture_output=True, text=True,
-    )
-    return 'UP RUNNING' in result.stdout and 'PSCAN' not in result.stdout
+    @dbus_property(access=PropertyAccess.READ)
+    def ManufacturerData(self) -> 'a{qv}':
+        return {self._manufacturer_id: Variant('ay', self._payload)}
 
 
 async def run_beacon(
@@ -160,7 +88,28 @@ async def run_beacon(
     hci_device: str = 'hci0',
     refresh_interval: int = 30,
 ):
-    ad_data = _build_advertising_data(beacon_payload)
-    while True:
-        await asyncio.sleep(refresh_interval)
-        _apply_beacon(ad_data, hci_device)
+    mfg_id_bytes = DISNEY_MANUFACTURER_ID.to_bytes(2, 'little')
+    mfg_data = mfg_id_bytes + beacon_payload
+    print(f'[beacon] Starting beacon on {hci_device}', flush=True)
+    print(f'[beacon] Manufacturer data: {" ".join(f"{b:02X}" for b in mfg_data)}', flush=True)
+
+    bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
+    adv = _LEAdvertisement(DISNEY_MANUFACTURER_ID, beacon_payload)
+    bus.export(_ADV_PATH, adv)
+
+    introspection = await bus.introspect('org.bluez', f'/org/bluez/{hci_device}')
+    proxy = bus.get_proxy_object('org.bluez', f'/org/bluez/{hci_device}', introspection)
+    adv_manager = proxy.get_interface('org.bluez.LEAdvertisingManager1')
+
+    await adv_manager.call_register_advertisement(_ADV_PATH, {})
+    print('[beacon] Broadcasting', flush=True)
+
+    try:
+        await adv._released.wait()
+        raise RuntimeError('Advertisement released by BlueZ, restarting')
+    finally:
+        try:
+            await adv_manager.call_unregister_advertisement(_ADV_PATH)
+        except Exception:
+            pass
+        bus.disconnect()
