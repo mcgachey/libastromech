@@ -64,7 +64,7 @@ class _LEAdvertisement(ServiceInterface):
     def __init__(self, manufacturer_id: int, payload: bytes):
         super().__init__('org.bluez.LEAdvertisement1')
         self._manufacturer_id = manufacturer_id
-        self._payload = list(payload)
+        self._payload = bytes(payload)
         self._released = asyncio.Event()
 
     @method()
