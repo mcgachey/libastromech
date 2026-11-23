@@ -8,11 +8,12 @@ import sys
 from libastromech import R2_Unit, Personality, Sound
 
 R2T2 = "F7:E6:74:95:E5:53"
+BBVL = "FE:C0:18:63:D0:ED"
 
 async def discover_sounds(output_file: str):
   print(f"Writing sound data to {output_file}")
   sounds = []
-  async with R2_Unit(R2T2, Personality('navy_blue')) as droid:
+  async with R2_Unit(BBVL, Personality('resistance_blue')) as droid:
     for group in range(10):
       await droid.set_audio_group(group)
       for sound in range(100):
@@ -40,7 +41,7 @@ async def discover_sounds(output_file: str):
 async def playback_sounds(config_file: str):
   with open(config_file) as f:
     sounds = [Sound(x['group'], x['sound'], x['ms']) for x in yaml.safe_load(f)['sounds']]
-  async with R2_Unit(R2T2, Personality('navy_blue')) as droid:
+  async with R2_Unit(BBVL, Personality('resistance_blue')) as droid:
     for idx, sound in enumerate(sounds):
       print(f"Playing sound {idx} [{sound.group}:{sound.sound}]")
       await droid.play(sound, wait=True)

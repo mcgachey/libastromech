@@ -1,0 +1,10 @@
+{
+  "name": "libastromech-esp32",
+  "version": "0.1.0",
+  "description": "Control Star Wars: Galaxy's Edge astromech droids over BLE from an ESP32, and broadcast droid/location beacons.",
+  "license": "MIT",
+  "frameworks": "arduino",
+  "platforms": "espressif32",
+  "dependencies": [{"name": "NimBLE-Arduino", "owner": "h2zero", "version": "~2.5.2"}],
+  "build": {"srcDir": "src"}
+}
