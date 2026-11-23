@@ -64,6 +64,10 @@ class Astromech {
 
   // ---- motion -------------------------------------------------------------
   bool stop(uint32_t delay_ms = 0);
+  // Start, change or stop one wheel motor (speed 0 stops it). It keeps running until told otherwise.
+  bool setWheel(Direction d, Motor m, int speed, int ramp_ms = kDefault) {
+    return m != Motor::Head && sendMotor(d, m, speed, ramp_ms);
+  }
 
   const Personality* personality() const { return personality_; }
   const char* mac() const { return mac_; }
